@@ -149,6 +149,11 @@ this is why `[` and `]` are used in these notes rather than `A`/`D`.
 
 ## 6. Open questions
 
+Confirmed working through the bridge so far: **SOCD** and **RS** — both resolve
+to a single bit per pair, which is exactly what the bitmap in §3 carries — plus
+hotplug (unplugging while a key is held releases it cleanly, and reconnecting
+restores the keys). Everything below is still open.
+
 Anyone picking this up should start here:
 
 1. **Why does the kernel drop the report?** Compare the report descriptor's
@@ -159,11 +164,19 @@ Anyone picking this up should start here:
 2. **Do other MCHOSE models behave the same?** Ace 60, Ace 68 Air, Ace 68
    Turbo, Ace 68 GT, Jet 75, Zero 75X, Mix 87 are all in the same M-HUB family.
    Their PIDs differ; the interface role layout may not.
-3. **What do RS / DKS / MT / TGL emit?** Only SOCD was characterised here. RS
-   (deeper press wins) should produce the same bitmap; DKS and MT produce
-   multiple actions per key and may use a different report id or length.
+3. **What do DKS / MT / TGL emit?** SOCD and RS are confirmed to use the report
+   format in §3. DKS and MT produce multiple actions per key and may use a
+   different report id or length. **MT is the most likely to fail**: mod-tap
+   usually emits a *modifier* on hold, and modifiers are HID usages `0xE0–0xE7`,
+   well outside the 15-byte bitmap, which stops at usage `0x77`. If MT does fail
+   that is a format limitation of the device, not a bug in the bridge.
 4. **Is there a second report id?** Only `0x01` was observed. Other ids may
    exist for lighting or configuration responses on the same interface.
+5. **Do modifiers combine across interfaces?** Shift / Ctrl / Alt still arrive
+   on interface 0 while advanced keys arrive on interface 2 — that is, from two
+   *different* input devices. Holding Shift and pressing an advanced key bound
+   to `1` should produce `!`. This is untested; it normally works because the
+   compositor merges devices, but it is worth confirming.
 
 ## 7. Reporting this upstream
 

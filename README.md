@@ -53,11 +53,51 @@ shipped udev rule handles it.
 
 ## Tested on
 
-* **MCHOSE Ace 68 -III** (`3837:3003`) — SOCD, on Linux 6.x and 7.x
+* **MCHOSE Ace 68 -III** (`3837:3003`), Linux 7.2.x
+
+Verified so far:
+
+| | Status |
+| --- | --- |
+| SOCD | ✅ works |
+| RS (deeper press wins) | ✅ works |
+| Hotplug — unplug/replug while a key is held | ✅ no stuck key, reconnects, keys work again |
+| Disconnect while a key is held | ✅ key released, nothing sticks |
+
+Untested: **DKS**, **MT**, **TGL**, and the cross-interface cases in
+[`docs/PROTOCOL.md` §6](docs/PROTOCOL.md). MT in particular may not work —
+mod-tap usually emits a *modifier* on hold, and modifiers (HID usages
+`0xE0–0xE7`) are outside the 15-byte bitmap this bridge can carry.
 
 Other MCHOSE models in the same M-HUB family (Ace 60, Ace 68 Air, Ace 68 Turbo,
 Ace 68 GT, Jet 75, Zero 75X, Mix 87) very likely behave the same, but have not
 been tested. Reports welcome — see [`docs/PROTOCOL.md` §6](docs/PROTOCOL.md).
+
+## Device access, and the vendor web driver
+
+The shipped udev rule (`packaging/70-mchose-adv.rules`) grants the active local
+user read/write access to **every MCHOSE hidraw node**, which fixes two things
+at once:
+
+1. **This bridge**, which needs read access to USB interface 2.
+2. **The vendor web driver** (M-HUB in Chrome/Edge/Opera), which needs read
+   *and write* access. Without such a rule the browser can only open the device
+   read-only: settings appear to apply but do not persist, and a half-written
+   profile can leave keys unresponsive. If you hand-wrote a rule for that, this
+   one supersedes it and you can remove yours.
+
+```udev
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3837", MODE="0660", GROUP="input", TAG+="uaccess"
+```
+
+The rule sets `MODE`/`GROUP` in addition to `TAG+="uaccess"` so it also works
+for a systemd *user* service, which may not see the active-session ACL that
+`uaccess` relies on. Being in the `input` group is recommended but not required
+for a normal desktop session.
+
+> If you only want the advanced keys and would rather not change device
+> permissions at all, you can skip the udev rule (`./install.sh --no-udev`) as
+> long as your user can already read the keyboard's hidraw node.
 
 ## Quick start
 

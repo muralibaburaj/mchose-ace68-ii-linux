@@ -26,18 +26,24 @@ do_uninstall=0
 
 for arg in "$@"; do
     case "$arg" in
-        --no-udev)    do_udev=0 ;;
-        --no-build)   do_build=0 ;;
-        --uninstall)  do_uninstall=1 ;;
-        -h|--help)    sed -n '3,15p' "$0"; exit 0 ;;
-        *) echo "unknown option: $arg" >&2; exit 2 ;;
+    --no-udev) do_udev=0 ;;
+    --no-build) do_build=0 ;;
+    --uninstall) do_uninstall=1 ;;
+    -h | --help)
+        sed -n '3,15p' "$0"
+        exit 0
+        ;;
+    *)
+        echo "unknown option: $arg" >&2
+        exit 2
+        ;;
     esac
 done
 
 if [[ $do_uninstall -eq 1 ]]; then
     echo "==> stopping and disabling the user service"
     systemctl --user disable --now mchose-adv.service 2>/dev/null || true
-    rm -f  "$UNIT" "$BIN"
+    rm -f "$UNIT" "$BIN"
     systemctl --user daemon-reload 2>/dev/null || true
     if [[ -f "$RULE_DST" ]]; then
         echo "==> removing $RULE_DST (needs root)"
@@ -65,7 +71,7 @@ install -Dm755 "$SRC_DIR/mchose-adv" "$BIN"
 echo "==> installing user unit $UNIT"
 mkdir -p "$UNIT_DIR"
 sed "s|^ExecStart=.*|ExecStart=$BIN --retry 2|" \
-    "$SRC_DIR/packaging/mchose-adv.service" > "$UNIT"
+    "$SRC_DIR/packaging/mchose-adv.service" >"$UNIT"
 
 if [[ $do_udev -eq 1 ]]; then
     if [[ -f "$RULE_DST" ]] && cmp -s "$SRC_DIR/packaging/70-mchose-adv.rules" "$RULE_DST"; then
