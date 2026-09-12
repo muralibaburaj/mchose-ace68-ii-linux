@@ -1,0 +1,15 @@
+# MCHOSE devices report under vendor id 3837; the Ace 68 -III is 3837:3003.
+#
+# mchose-adv needs read access to hidraw so it can read USB interface 2, which
+# is where the keyboard sends keys resolved by its advanced-key features
+# (SOCD / RS / DKS / MT / TGL). Linux does not translate that report itself.
+#
+# VID-only matching covers the other MCHOSE models that share this vendor id.
+# Narrow it to ATTRS{idProduct}=="3003" if you prefer.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3837", MODE="0660", GROUP="input", TAG+="uaccess"
+SUBSYSTEM=="usb",    ATTRS{idVendor}=="3837", MODE="0660", GROUP="input", TAG+="uaccess"
+
+# Needed to create the virtual keyboard that re-emits the advanced keys.
+# Most desktops already do this (80-uinput.rules); repeated here so the package
+# is self-contained and works on minimal systems too.
+KERNEL=="uinput", SUBSYSTEM=="misc", MODE="0660", GROUP="input", TAG+="uaccess", OPTIONS+="static_node=uinput"
