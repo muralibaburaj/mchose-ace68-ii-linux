@@ -94,11 +94,17 @@ if ! id -nG "$USER" | tr ' ' '\n' | grep -qx input; then
 fi
 
 echo "==> enabling the user service"
-systemctl --user daemon-reload
-systemctl --user enable --now mchose-adv.service
-
-sleep 1
-systemctl --user --no-pager --lines=0 status mchose-adv.service || true
+# Tolerate having no systemd user session yet: this is normal when the script
+# runs from a TTY during machine bootstrap, and must not abort the caller.
+if ! systemctl --user daemon-reload 2>/dev/null; then
+    echo "    note: no systemd user session available yet."
+    echo "          After logging in, run: systemctl --user enable --now mchose-adv"
+else
+    systemctl --user enable --now mchose-adv.service \
+        || echo "    note: could not start it now; it will start on next login."
+    sleep 1
+    systemctl --user --no-pager --lines=0 status mchose-adv.service || true
+fi
 
 cat <<EOF
 
