@@ -1,6 +1,6 @@
 [Unit]
 Description=MCHOSE keyboard advanced keys (SOCD/RS/DKS) bridge
-Documentation=https://github.com/CHANGEME/mchose-adv
+Documentation=https://github.com/erikenz/mchose-adv
 # Not Requires=: the daemon is happy to run before the keyboard exists and
 # waits for it to appear.
 After=default.target

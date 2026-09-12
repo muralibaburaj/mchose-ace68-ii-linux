@@ -102,7 +102,7 @@ for a normal desktop session.
 ## Quick start
 
 ```sh
-git clone https://github.com/CHANGEME/mchose-adv
+git clone https://github.com/erikenz/mchose-adv
 cd mchose-adv
 ./install.sh
 ```

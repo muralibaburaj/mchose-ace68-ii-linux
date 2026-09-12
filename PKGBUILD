@@ -4,11 +4,11 @@
 # this to the AUR. Until then, use ./install.sh or `make && sudo make install`.
 #
 pkgname=mchose-adv
-pkgver=1.0.0
+pkgver=0.1.0
 pkgrel=1
 pkgdesc="Userspace bridge for MCHOSE hall-effect keyboard advanced keys (SOCD/RS/DKS) on Linux"
 arch=('x86_64' 'aarch64')
-url="https://github.com/CHANGEME/mchose-adv"
+url="https://github.com/erikenz/mchose-adv"
 license=('MIT')
 depends=('glibc')
 makedepends=('gcc')
