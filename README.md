@@ -166,6 +166,37 @@ replugging and will not attach to your mouse.
   limitation, not this program's.
 * **Advanced keys are not duplicated.** Because they only travel on interface 2,
   there is no double input.
+* **Macros depend on this bridge.** MCHOSE macros are transmitted on interface 2
+  as well, so on Linux they only work while `mchose-adv` is running. On a stock
+  system they are completely invisible. See
+  [`docs/PROTOCOL.md` §8.2](docs/PROTOCOL.md).
+
+## Known issues
+
+**After booting or replugging, SOCD/RS stops resolving — but the keys still type.**
+
+The keyboard's advanced-key engine does not start on a fresh USB enumeration. It
+starts when the onboard profile *changes*, never on the initial profile *load*.
+Until then, SOCD-bound keys fall back to the plain boot keyboard on interface 0,
+which has no arbitration layer — so `A` and `D` both report as held and you get
+no last-input-wins.
+
+This is a **keyboard firmware bug, not a Linux one.** MCHOSE's own web driver
+reproduces it, so it behaves identically on Windows. Nothing host-side can fix
+it: the bridge never writes to the device, and interface 2 is silent when idle,
+so it cannot even detect the state (`engine off` and `nothing pressed` look the
+same).
+
+**Workaround:** press your profile-cycle combination once after booting or
+replugging. Verified by capturing both interfaces — see
+[`docs/PROTOCOL.md` §8.1](docs/PROTOCOL.md) for the byte-level evidence.
+
+**Alternative:** unbind SOCD in M-HUB and implement last-input-wins in userspace
+instead ([`keyresolve-git`](https://aur.archlinux.org/packages/keyresolve-git),
+[`doubletap-git`](https://aur.archlinux.org/packages/doubletap-git)). With the
+firmware feature off, `A`/`D` are ordinary keys that always travel interface 0,
+so there is no engine that can fail to start. The trade-off is a daemon that
+grabs the keyboard, versus a firmware feature that works until the next replug.
 
 ## Troubleshooting
 

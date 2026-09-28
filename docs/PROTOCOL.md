@@ -190,3 +190,80 @@ Worth doing, in rough order of impact:
   a fixup in `hid-quirks.c` may be all that is needed.
 * **This project** — issues and PRs welcome, especially captures from other
   MCHOSE models.
+
+## 8. Firmware quirks confirmed by testing
+
+Both of the following were measured on hardware **and reproduced by MCHOSE's own
+web driver (M-HUB)**. That second part matters: it means they are host-agnostic,
+not Linux problems, not `mchose-adv` problems, and not something a driver can
+work around. They will behave the same on Windows.
+
+### 8.1 The advanced-key engine does not start on a fresh USB enumeration
+
+After a cold boot or a replug, with a preset containing SOCD bound to `A`/`D` as
+the **active** onboard profile, SOCD does not resolve. The keys still type,
+because they fall back to the plain boot keyboard on **interface 0**:
+
+```text
+after replug, no profile switch:
+  interface 2 : no A/D activity at all
+  interface 0 : 87.287  ['A']
+                88.338  ['A', 'D']   <-- both keys in ONE report, no arbitration
+                89.099  ['A']
+
+after switching profiles away and back:
+  interface 2 bitmap decoded:
+    58.747  A=X D=.   A
+    59.351  A=. D=.   none     <-- A released...
+    59.353  A=. D=X    D        <-- ...the instant D is pressed
+    59.931  A=. D=.   none     <-- D released...
+    59.932  A=X D=.   A        <-- ...and A returns (it was still held)
+```
+
+The second block is textbook last-input-wins — `A` and `D` are never set
+together. The first is a raw 6-key boot report with no arbitration layer at all,
+which is precisely why the keys still type while SOCD appears "broken".
+
+**The engine starts on a profile _change_, never on the initial profile
+_load_.** Cycling the onboard profile and returning to the same one restores it.
+
+Host-side detection is impossible: interface 2 has no idle/keepalive stream
+(0 reports in 20 s while untouched), so "engine off" and "nothing pressed" are
+indistinguishable. USB autosuspend and a stale `hidraw` handle were both ruled
+out — the device sits at `power/control=on`, and the bridge's file descriptor
+inode matches the live node.
+
+### 8.2 Macros also emit on interface 2
+
+Macros are authored in the **Key Remap** tab, but they are transmitted the same
+way as advanced keys — on interface 2, not duplicated to interface 0. Measured
+while holding a macro key bound to spam `K`:
+
+```text
+5  manual K presses  -> interface 0   (native)
+40 macro K presses   -> interface 2   (only the bridge sees these)
+raw HID: 5 K-reports on if0, 95 on if2
+```
+
+So **on Linux a MCHOSE macro only works while `mchose-adv` is running.** On a
+stock system it is entirely invisible.
+
+This also means a macro cannot be an MT (mod-tap) hold or tap action: the MT
+catalogue offers keys only, and assigning a macro in Key Remap *replaces* the
+key rather than leaving a keycode for an advanced key to reference.
+
+### 8.3 Macro timing — watch the release window
+
+Game input is sampled per tick; Rocket League runs at 120 Hz, so one tick is
+8.3 ms. A macro that reproduces a working input pattern at the same *rate* can
+still fail if its release window is shorter than a tick. Measured on a
+hold-to-repeat jump macro used for wall dashes:
+
+```text
+before:  cycle 93.8-94.2 ms   hold 88.5 ms   RELEASE GAP  3.9-4.2 ms   sub-tick
+ after:  cycle 89.9-90.1 ms   hold 45.0 ms   RELEASE GAP 44.9-45.1 ms   works
+```
+
+With a sub-tick release the key-up is never reliably observed, so the game never
+sees a *new* press — a dash chain would not start, or would fire a flip at the
+wrong moment. Any release window of roughly 15 ms or more is safe.

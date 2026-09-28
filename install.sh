@@ -100,8 +100,8 @@ if ! systemctl --user daemon-reload 2>/dev/null; then
     echo "    note: no systemd user session available yet."
     echo "          After logging in, run: systemctl --user enable --now mchose-adv"
 else
-    systemctl --user enable --now mchose-adv.service \
-        || echo "    note: could not start it now; it will start on next login."
+    systemctl --user enable --now mchose-adv.service ||
+        echo "    note: could not start it now; it will start on next login."
     sleep 1
     systemctl --user --no-pager --lines=0 status mchose-adv.service || true
 fi
