@@ -61,8 +61,10 @@
 #include <sys/ioctl.h>
 #include <sys/select.h>
 
-#define VENDOR_ID   0x3837
-#define PRODUCT_ID  0x3003
+/* Ace68-II (41e4:2116) exposes the same report ID 1 / 120-bit keyboard
+ * collection on USB interface 2 as the Ace 68 -III tested upstream. */
+#define VENDOR_ID   0x41e4
+#define PRODUCT_ID  0x2116
 #define REPORT_ID   0x01
 #define BUF_LEN     16
 #define BITMAP_OFF  1                              /* first bitmap byte          */

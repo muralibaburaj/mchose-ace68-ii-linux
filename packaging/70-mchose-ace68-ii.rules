@@ -1,0 +1,3 @@
+# MCHOSE Ace68-II (41e4:2116): WebHID access for the active local session.
+# Also permits reading interface 2 if running the bridge as the logged-in user.
+ACTION=="add", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="41e4", ATTRS{idProduct}=="2116", TAG+="uaccess"

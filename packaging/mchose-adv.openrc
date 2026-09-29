@@ -1,0 +1,16 @@
+#!/sbin/openrc-run
+
+description="Bridge MCHOSE Ace68-II advanced-key reports to Linux input"
+supervisor="supervise-daemon"
+command="/usr/local/bin/mchose-adv-ace68-ii"
+pidfile="/run/${RC_SVCNAME}.pid"
+respawn_delay=2
+respawn_period=60
+respawn_max=5
+error_log="/var/log/mchose-adv.log"
+required_files="${command}"
+
+depend() {
+	need udev
+	after udev-trigger
+}
