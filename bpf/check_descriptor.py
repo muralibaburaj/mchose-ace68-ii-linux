@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Non-invasive checks for the proposed Ace68-II descriptor fixup."""
+"""Non-invasive checks for the Ace68-II descriptor, before or after fixup."""
 
 from pathlib import Path
 
@@ -11,7 +11,9 @@ PREFIX = bytes.fromhex(
 
 def check(descriptor: bytes) -> None:
     assert len(descriptor) == 163, f"unexpected descriptor length: {len(descriptor)}"
-    assert descriptor.startswith(PREFIX), "interface 2 signature changed"
+    assert descriptor[:23] == PREFIX[:23], "interface 2 signature changed"
+    assert descriptor[23] in (0x00, 0x02), "unexpected input flags"
+    state = "patched (Variable)" if descriptor[23] == 0x02 else "original (Array)"
     fixed = bytearray(descriptor)
     fixed[23] = 0x02
     assert fixed[:23] == descriptor[:23]
@@ -25,8 +27,8 @@ def check(descriptor: bytes) -> None:
         report[1 + usage // 8] = 1 << (usage % 8)
         assert len(report) == 1 + 120 // 8
         assert report[1] == (1 << usage)
-    print("Descriptor signature and one-byte fixup match; A/D bitmap offsets match.")
-    print("This does NOT prove Linux will emit key events: kernel test still needed.")
+    print(f"Descriptor signature matches: {state}; A/D bitmap offsets match.")
+    print("This static check alone does NOT prove Linux emits key events.")
 
 
 def find_descriptor() -> Path:

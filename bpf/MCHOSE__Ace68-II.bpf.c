@@ -4,7 +4,8 @@
  * Input(Variable). Change only that field; never touch the boot keyboard or
  * configuration interface. Based on the in-tree Trust__Philips-SPK6327 fix.
  *
- * EXPERIMENTAL: not yet attached to physical hardware.
+ * Experimental: A/D input was observed in a temporary physical-device test;
+ * reboot/reconnect and full key coverage are not yet verified.
  */
 #include "vmlinux.h"
 #include "hid_bpf.h"

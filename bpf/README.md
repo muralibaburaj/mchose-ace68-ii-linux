@@ -1,4 +1,4 @@
-# Experimental HID-BPF descriptor fixup (not installed)
+# HID-BPF descriptor fixup for Ace68-II
 
 The Ace68-II `41e4:2116` interface 2 has a 163-byte HID report descriptor.
 Report ID 1 starts with `05 01 09 06 a1 01 85 01` and declares 120 one-bit
@@ -10,7 +10,8 @@ The candidate fix changes only descriptor byte 23 to `02` (Data,
 precedent. The `probe` rejects other interface descriptors and revisions.
 
 Run `python3 bpf/check_descriptor.py` (auto-discovers interface 2), or pass
-its `report_descriptor` path explicitly. This is only a static assertion, not a
+its `report_descriptor` path explicitly. It recognizes the original `81 00`
+and the attached fixup's `81 02`. This is only a static assertion, not a
 kernel-input test. Kernel `CONFIG_HID_BPF=y` is present on the tested Gentoo
 7.2.7 kernel. On the tested machine, `udev-hid-bpf` 2.2.0 and libbpf 1.7.0
 are installed. The BPF object compiles with the matching upstream 2.2.0
@@ -18,7 +19,7 @@ source tree. A temporary live attachment with the bridge stopped showed
 A/D characters being produced by Linux; boot-time auto-attachment and wider
 feature coverage have not yet been tested.
 
-## Next, before applying to the real keyboard
+## Build and test on another system
 
 1. Build with [udev-hid-bpf](https://libevdev.pages.freedesktop.org/udev-hid-bpf/getting-started.html)
    (the source includes `vmlinux.h`, `hid_bpf.h`, `hid_bpf_helpers.h`, and
@@ -41,12 +42,16 @@ feature coverage have not yet been tested.
    `doas udev-hid-bpf remove /sys/bus/hid/devices/0003:41E4:2116.NNNN`
    using the actual path printed by the script, then
    `doas rc-service mchose-adv start`.
-4. Do not replace the OpenRC service, auto-install udev rules, or claim this
-   fixes the hardware until the live test passes (including reconnect and
-   M HUB Web access). No keyboard firmware is modified by HID-BPF.
+4. Do not replace the OpenRC service on another system until its own live
+   test passes. Reconnect and reboot remain unverified on the tested system;
+   M HUB Web and other keyboard features need separate checks. No keyboard
+   firmware is modified by HID-BPF.
 
 This program is an **experimental alternative** to the working userspace
-bridge and is not part of `make install`.
+bridge and is not part of `make install`. It is currently attached and has a
+persistent udev rule on the tested Gentoo machine, not automatically installed
+for every checkout. See the [main README](../README.md) for the full setup,
+verification, and rollback procedure.
 
 ## Persistent switch after successful live test
 
