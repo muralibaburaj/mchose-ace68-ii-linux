@@ -12,23 +12,33 @@ precedent. The `probe` rejects other interface descriptors and revisions.
 Run `python3 bpf/check_descriptor.py` (auto-discovers interface 2), or pass
 its `report_descriptor` path explicitly. This is only a static assertion, not a
 kernel-input test. Kernel `CONFIG_HID_BPF=y` is present on the tested Gentoo
-7.2.7 kernel, but `udev-hid-bpf`/libbpf development tools are not yet installed.
+7.2.7 kernel. On the tested machine, `udev-hid-bpf` 2.2.0 and libbpf 1.7.0
+are installed. The BPF object compiles with the matching upstream 2.2.0
+source tree, but has not been attached to the physical keyboard yet.
 
 ## Next, before applying to the real keyboard
 
 1. Build with [udev-hid-bpf](https://libevdev.pages.freedesktop.org/udev-hid-bpf/getting-started.html)
    (the source includes `vmlinux.h`, `hid_bpf.h`, `hid_bpf_helpers.h`, and
-   `bpf/bpf_tracing.h`). Add `MCHOSE__Ace68-II.bpf.c` to its `src/bpf/testing/`
-   Meson sources; compile and inspect its ELF and the udev-hid-bpf loader.
-2. Test a **synthetic UHID** keyboard with both original and corrected
-   descriptors and identical A/D input reports, ensuring Linux emits no
-   duplicate/unrelated keys. This will require privileged access to `/dev/uhid`.
-3. Only after that, test a **manual, temporary** attachment to the real
-   interface-2 HID device. Keep another keyboard available. First stop the
-   userspace bridge with `doas rc-service mchose-adv stop`; while the BPF
-   fixup is attached, running the bridge too may double the keystrokes.
-   Attaching/detaching HID-BPF temporarily reprobes that interface. If it
-   fails, remove the BPF attachment, then `doas rc-service mchose-adv start`.
+   `bpf/bpf_tracing.h`). The tested build uses its 2.2.0-20251121 release,
+   adding `MCHOSE__Ace68-II.bpf.c` to `src/bpf/testing/meson.build`, then
+   `meson setup build -Dbpfs=testing -Dbpf-compiler=clang` and
+   `ninja -C build src/bpf/0010-MCHOSE__Ace68-II.bpf.o`. Copy that object
+   beside this README as `MCHOSE__Ace68-II.bpf.o` (git ignores compiled BPF).
+2. A **synthetic UHID** keyboard test with both original and corrected
+   descriptors would add confidence, but has not been performed. It would
+   require privileged access to `/dev/uhid`. The static descriptor check
+   and successful BPF compilation do not prove real kernel input behavior.
+3. With that uncertainty understood, perform a **manual, temporary** test on the real
+   interface-2 HID device. Keep another keyboard available. Run
+   `doas bash bpf/live-test.sh` in a terminal: it stops the bridge, attaches
+   the compiled object, and waits for you to test A/D and other keys. When
+   you press Enter or interrupt it, it removes the fixup and restarts the
+   bridge. Attaching/detaching HID-BPF temporarily reprobes that interface.
+   If interrupted uncleanly (power failure or SIGKILL), manually run
+   `doas udev-hid-bpf remove /sys/bus/hid/devices/0003:41E4:2116.NNNN`
+   using the actual path printed by the script, then
+   `doas rc-service mchose-adv start`.
 4. Do not replace the OpenRC service, auto-install udev rules, or claim this
    fixes the hardware until the live test passes (including reconnect and
    M HUB Web access). No keyboard firmware is modified by HID-BPF.
