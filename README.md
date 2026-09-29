@@ -53,3 +53,7 @@ remove that binding in M HUB if you want A/D to work without the bridge.
 Based on `erikenz/mchose-adv` (MIT license, retained in `LICENSE`). The
 upstream systemd unit, vendor-wide udev rule, and Arch packaging remain in
 the repository for provenance but are **not installed** by this Makefile.
+
+An [experimental HID-BPF descriptor fixup](bpf/README.md) is also included,
+but is not installed or tested on the physical keyboard. Keep the bridge
+enabled until the kernel-side approach has been validated independently.
