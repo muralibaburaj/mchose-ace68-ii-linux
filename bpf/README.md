@@ -14,7 +14,9 @@ its `report_descriptor` path explicitly. This is only a static assertion, not a
 kernel-input test. Kernel `CONFIG_HID_BPF=y` is present on the tested Gentoo
 7.2.7 kernel. On the tested machine, `udev-hid-bpf` 2.2.0 and libbpf 1.7.0
 are installed. The BPF object compiles with the matching upstream 2.2.0
-source tree, but has not been attached to the physical keyboard yet.
+source tree. A temporary live attachment with the bridge stopped showed
+A/D characters being produced by Linux; boot-time auto-attachment and wider
+feature coverage have not yet been tested.
 
 ## Next, before applying to the real keyboard
 
@@ -44,4 +46,16 @@ source tree, but has not been attached to the physical keyboard yet.
    M HUB Web access). No keyboard firmware is modified by HID-BPF.
 
 This program is an **experimental alternative** to the working userspace
-bridge, not part of `make install` and not yet validated on physical hardware.
+bridge and is not part of `make install`.
+
+## Persistent switch after successful live test
+
+`doas bash bpf/install-hid-bpf.sh` temporarily re-tests the compiled object,
+then installs `82-mchose-ace68-ii-hid-bpf.rules` to auto-attach on future
+keyboard connections **only** for USB interface 2. Type `keep` within 120
+seconds if it works; otherwise it removes the attachment and returns to the
+OpenRC bridge. When kept, the bridge binary/service is retained but removed
+from the default runlevel. The HID-BPF object is stored in
+`/etc/udev-hid-bpf/MCHOSE__Ace68-II.bpf.o`.
+
+To undo the persistent switch later, run `doas bash bpf/rollback-hid-bpf.sh`.

@@ -1,0 +1,5 @@
+# Only the Ace68-II's advanced-key HID interface (USB interface 2).
+# HID-BPF patches its report descriptor on connect; the boot keyboard and
+# configuration channel are left untouched.
+SUBSYSTEM=="hid", ENV{MODALIAS}=="hid:b0003g0001v000041E4p00002116", ENV{HID_PHYS}=="*/input2", ACTION=="add", RUN{program}+="/usr/bin/udev-hid-bpf add $sys$devpath /etc/udev-hid-bpf/MCHOSE__Ace68-II.bpf.o"
+SUBSYSTEM=="hid", ENV{MODALIAS}=="hid:b0003g0001v000041E4p00002116", ENV{HID_PHYS}=="*/input2", ACTION=="remove", RUN{program}+="/usr/bin/udev-hid-bpf remove $sys$devpath"
