@@ -224,8 +224,8 @@ The second block is textbook last-input-wins — `A` and `D` are never set
 together. The first is a raw 6-key boot report with no arbitration layer at all,
 which is precisely why the keys still type while SOCD appears "broken".
 
-**The engine starts on a profile _change_, never on the initial profile
-_load_.** Cycling the onboard profile and returning to the same one restores it.
+**The engine starts on a profile *change*, never on the initial profile
+*load*.** Cycling the onboard profile and returning to the same one restores it.
 
 Host-side detection is impossible: interface 2 has no idle/keepalive stream
 (0 reports in 20 s while untouched), so "engine off" and "nothing pressed" are
@@ -254,16 +254,63 @@ key rather than leaving a keycode for an advanced key to reference.
 
 ### 8.3 Macro timing — watch the release window
 
-Game input is sampled per tick; Rocket League runs at 120 Hz, so one tick is
-8.3 ms. A macro that reproduces a working input pattern at the same *rate* can
-still fail if its release window is shorter than a tick. Measured on a
-hold-to-repeat jump macro used for wall dashes:
+Game input is typically sampled per tick or per frame — 8.3 ms at 120 Hz. A
+macro that reproduces a working input pattern at the same *rate* can still fail
+if its release window is shorter than one sample:
 
 ```text
 before:  cycle 93.8-94.2 ms   hold 88.5 ms   RELEASE GAP  3.9-4.2 ms   sub-tick
  after:  cycle 89.9-90.1 ms   hold 45.0 ms   RELEASE GAP 44.9-45.1 ms   works
 ```
 
-With a sub-tick release the key-up is never reliably observed, so the game never
-sees a *new* press — a dash chain would not start, or would fire a flip at the
-wrong moment. Any release window of roughly 15 ms or more is safe.
+With a sub-tick release the key-up is never reliably observed, so the consumer
+never sees a *new* press — anything the macro is meant to drive repeatedly will
+not start, or will fire at the wrong moment. Any release window of roughly
+15 ms or more is safe.
+
+### 8.4 Macro execution flushes the advanced-key report
+
+Running a macro disturbs any key bound to an advanced-key function (SOCD, RS,
+DKS, MT, TGL) that is **physically held at the same time** — regardless of what
+the macro emits, and regardless of how it loops.
+
+With such a key held while a macro runs and is then released:
+
+```text
+   58.7  if2   [W]            <- held advanced key, present in the bitmap
+   ...
+  370.3  MOUSE DOWN M2         <- the macro's own output
+  370.4  if2   [idle]          <- macro engine goes idle -> all-clear frame
+  370.4  bridge UP   W         <- the bridge correctly applies it
+         (no further frame ever contains W)
+```
+
+The all-clear frame drops the held key from the report. Because the firmware's
+own key state has not changed, it never re-asserts it, and the two sides
+**desynchronise permanently**: the firmware believes the key is down, the host
+believes it is up. That key stops being reported until it is physically released
+and pressed again. Any state change on it restores the link — including pressing
+its opposing pair partner, which the SOCD engine resolves into a fresh frame.
+
+Crucially, the flush is **global to the macro engine**, not specific to one
+report. Three different macro outputs were measured, with identical results:
+
+| macro output                        | held advanced key survives |
+| ----------------------------------- | -------------------------- |
+| keyboard key                        | no                         |
+| mouse button                        | no                         |
+| a sequence including the held key   | no                         |
+
+The mouse-button case is the informative one: its output travels on the *mouse*
+collection, which Linux delivers natively with no bridge involved, while the
+keyboard bitmap was still cleared. So the engine rewrites the keyboard report on
+every idle whatever the macro produces — it is not a per-report effect, and it
+cannot be side-stepped by changing the macro's output type.
+
+**There is no firmware-side configuration that avoids this.** A host-side macro
+(evdev level, uinput output) avoids it completely, because it produces no
+interface-2 frames and therefore has nothing to flush. See §8.2 for why a macro
+cannot simply be moved to a different report.
+
+**Workaround:** after releasing the macro, tap and release each advanced key
+that was being held, to force the firmware to re-emit its state.

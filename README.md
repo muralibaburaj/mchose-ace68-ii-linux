@@ -198,6 +198,23 @@ firmware feature off, `A`/`D` are ordinary keys that always travel interface 0,
 so there is no engine that can fail to start. The trade-off is a daemon that
 grabs the keyboard, versus a firmware feature that works until the next replug.
 
+**Using a macro while holding SOCD/RS keys stops those keys working until you re-press them.**
+
+Whenever the keyboard's macro engine goes idle it rewrites the advanced-key
+report to all-clear. That drops any advanced key that is physically held and is
+not part of the macro — and because the firmware's own key state has not changed,
+it never re-asserts it. The key stays unreported until you physically release
+and press it again.
+
+This is global to the macro engine: it happens whatever the macro emits
+(keyboard key or mouse button) and however it loops, including
+loop-until-toggled. There is no firmware setting that avoids it.
+
+**Workaround:** after releasing the macro, tap and release each advanced key you
+were holding. Pressing the opposing key of a SOCD pair works too, since that
+forces the firmware to re-emit the state. See
+[`docs/PROTOCOL.md` §8.4](docs/PROTOCOL.md) for the measurements.
+
 ## Troubleshooting
 
 **Nothing types.** Check the daemon is running and found the device:
