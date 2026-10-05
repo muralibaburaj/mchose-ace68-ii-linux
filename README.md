@@ -1,5 +1,11 @@
 # MCHOSE Ace68-II advanced keys on Linux
 
+**Fork of [erikenz/mchose-adv](https://github.com/erikenz/mchose-adv), adapted
+for the MCHOSE Ace68-II and Gentoo/OpenRC.** Credit for the original
+`mchose-adv` userspace bridge and protocol documentation belongs to its upstream
+contributors. This fork adds Ace68-II-specific support and a HID-BPF descriptor
+fixup; it is not an official MCHOSE project.
+
 Linux support for the **MCHOSE Ace68-II (`41e4:2116`)** advanced-key interface.
 The primary solution is a small HID-BPF report-descriptor correction: no
 long-running bridge process, polling loop, virtual keyboard, or firmware flash.
