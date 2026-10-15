@@ -1,3 +1,5 @@
-# MCHOSE Ace68-II (41e4:2116): WebHID access for the active local session.
-# Also permits reading interface 2 if running the bridge as the logged-in user.
-ACTION=="add", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="41e4", ATTRS{idProduct}=="2116", TAG+="uaccess"
+# MCHOSE Ace68-II (41e4:2116): read/write WebHID access on all interfaces.
+# uaccess grants the active seat access; wheel covers systems where logind
+# grants the greeter (e.g. sddm) the ACL instead of the desktop session.
+# The bridge can still read interface 2 when running as root.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="41e4", ATTRS{idProduct}=="2116", MODE="0660", GROUP="wheel", TAG+="uaccess"

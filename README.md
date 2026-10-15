@@ -75,8 +75,18 @@ an attachment exists **now**, not that a future boot will succeed.
 2. For WebHID access on Gentoo, install
    [`packaging/70-mchose-ace68-ii.rules`](packaging/70-mchose-ace68-ii.rules)
    in `/etc/udev/rules.d/`, reload udev rules, then reconnect the keyboard.
-   It grants the active local session access to this device's `hidraw` nodes;
-   it does **not** grant access to `/dev/uinput` or set mouse polling rates.
+   On NixOS, add the rule to `services.udev.extraRules` in your NixOS config
+   and rebuild (or include this rule in a package under `services.udev.packages`).
+   It grants the active local session access to this device's `hidraw` nodes
+   where `uaccess` works, with read/write access for `wheel` as a fallback.
+   On a tested NixOS/SDDM session, `uaccess` gave `sddm` (not the logged-in
+   user) the ACL; the fallback let a user already in `wheel` open all three nodes
+   read/write. Chromium exposes WebHID on secure pages; an actual M HUB
+   profile-save test has not been confirmed. This rule applies to `41e4:2116`
+   only, not the `3837` devices in the original bridge repository. If your
+   user is not in `wheel`, adjust `GROUP` to a group you already belong to, then
+   reload the rule and reconnect the keyboard. It does **not** grant access
+   to `/dev/uinput` or set mouse polling rates.
 
 ## Build and install HID-BPF on Gentoo/OpenRC
 
