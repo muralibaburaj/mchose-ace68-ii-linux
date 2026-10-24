@@ -34,15 +34,15 @@ feature coverage have not yet been tested.
    and successful BPF compilation do not prove real kernel input behavior.
 3. With that uncertainty understood, perform a **manual, temporary** test on the real
    interface-2 HID device. Keep another keyboard available. Run
-   `doas bash bpf/live-test.sh` in a terminal: it stops the bridge, attaches
+   `sudo bash bpf/live-test.sh` in a terminal: it stops the bridge, attaches
    the compiled object, and waits for you to test A/D and other keys. When
    you press Enter or interrupt it, it removes the fixup and restarts the
    bridge. Attaching/detaching HID-BPF temporarily reprobes that interface.
    If interrupted uncleanly (power failure or SIGKILL), manually run
-   `doas udev-hid-bpf remove /sys/bus/hid/devices/0003:41E4:2116.NNNN`
+   `sudo udev-hid-bpf remove /sys/bus/hid/devices/0003:41E4:2116.NNNN`
    using the actual path printed by the script, then
-   `doas rc-service mchose-adv start`.
-4. Do not replace the OpenRC service on another system until its own live
+   `sudo scripts/svc.sh start`.
+4. Do not replace the bridge service on another system until its own live
    test passes. Reconnect and reboot remain unverified on the tested system;
    M HUB Web and other keyboard features need separate checks. No keyboard
    firmware is modified by HID-BPF.
@@ -55,12 +55,12 @@ verification, and rollback procedure.
 
 ## Persistent switch after successful live test
 
-`doas bash bpf/install-hid-bpf.sh` temporarily re-tests the compiled object,
+`sudo bash bpf/install-hid-bpf.sh` temporarily re-tests the compiled object,
 then installs `82-mchose-ace68-ii-hid-bpf.rules` to auto-attach on future
 keyboard connections **only** for USB interface 2. Type `keep` within 120
 seconds if it works; otherwise it removes the attachment and returns to the
-OpenRC bridge. When kept, the bridge binary/service is retained but removed
-from the default runlevel. The HID-BPF object is stored in
+bridge. When kept, the bridge binary/service is retained but removed
+from boot (whatever the init system). The HID-BPF object is stored in
 `/etc/udev-hid-bpf/MCHOSE__Ace68-II.bpf.o`.
 
-To undo the persistent switch later, run `doas bash bpf/rollback-hid-bpf.sh`.
+To undo the persistent switch later, run `sudo bash bpf/rollback-hid-bpf.sh`.

@@ -1,0 +1,4 @@
+#!/bin/sh
+# s6-rc longrun (Artix s6, Obarun, custom s6 setups).
+exec 2>&1
+exec nice -n -5 @BIN@ --retry 2

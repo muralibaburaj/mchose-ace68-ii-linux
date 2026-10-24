@@ -1,0 +1,4 @@
+#!/bin/sh
+# runit (Void, Artix, antiX, ...). Logs go to ./log/run.
+exec 2>&1
+exec nice -n -5 @BIN@ --retry 2

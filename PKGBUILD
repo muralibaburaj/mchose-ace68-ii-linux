@@ -1,46 +1,30 @@
-# Maintainer: Your Name <you@example.com>
+# Maintainer: muralibaburaj <https://github.com/muralibaburaj>
 #
-# NOTE: change `url` and the `source` line to your repository before pushing
-# this to the AUR. Until then, use ./install.sh or `make && sudo make install`.
+# Arch Linux uses systemd. For Artix, change INIT= in package() to openrc,
+# runit, s6 or dinit (or split this into per-init packages).
 #
-pkgname=mchose-adv
-pkgver=0.1.0
+pkgname=mchose-adv-ace68-ii
+pkgver=0.2.0
 pkgrel=1
-pkgdesc="Userspace bridge for MCHOSE hall-effect keyboard advanced keys (SOCD/RS/DKS) on Linux"
+pkgdesc="Linux support for MCHOSE Ace68-II advanced keys (SOCD/RS/DKS): HID-BPF fixup rule and userspace bridge"
 arch=('x86_64' 'aarch64')
-url="https://github.com/erikenz/mchose-adv"
+url="https://github.com/muralibaburaj/mchose-ace68-ii-linux"
 license=('MIT')
 depends=('glibc')
-makedepends=('gcc')
-provides=('mchose-adv')
-conflicts=()
-backup=('etc/udev/rules.d/70-mchose-adv.rules')
+makedepends=('gcc' 'make')
+optdepends=('udev-hid-bpf: load the HID-BPF descriptor fixup instead of running the bridge')
+backup=('usr/lib/udev/rules.d/70-mchose-ace68-ii.rules')
 
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 build() {
-    cd "$pkgname-$pkgver"
+    cd "mchose-ace68-ii-linux-$pkgver"
     make
 }
 
 package() {
-    cd "$pkgname-$pkgver"
-
-    install -Dm755 mchose-adv \
-        "$pkgdir/usr/bin/mchose-adv"
-
-    # udev rule for hidraw access; systemd user unit is enabled per-user, not
-    # globally, so it goes to /usr/lib/systemd/user.
-    install -Dm644 packaging/70-mchose-adv.rules \
-        "$pkgdir/etc/udev/rules.d/70-mchose-adv.rules"
-    install -Dm644 packaging/mchose-adv.service \
-        "$pkgdir/usr/lib/systemd/user/mchose-adv.service"
-
-    install -Dm644 LICENSE \
-        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-    install -Dm644 README.md \
-        "$pkgdir/usr/share/doc/$pkgname/README.md"
-    install -Dm644 docs/PROTOCOL.md \
-        "$pkgdir/usr/share/doc/$pkgname/PROTOCOL.md"
+    cd "mchose-ace68-ii-linux-$pkgver"
+    make DESTDIR="$pkgdir" PREFIX=/usr SYSTEMDUNITDIR=/usr/lib/systemd/system \
+        INIT=systemd install install-init
 }

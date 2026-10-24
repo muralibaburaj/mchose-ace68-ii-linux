@@ -3,9 +3,14 @@
 set -euo pipefail
 
 if (( EUID != 0 )); then
-	echo "Run this script with doas." >&2
+	echo "Run this script as root (sudo or doas)." >&2
 	exit 1
 fi
+
+# Start/stop/enable the bridge under whichever init system is running.
+# shellcheck source=scripts/svc.sh
+. "$(dirname "$(readlink -f "$0")")/../scripts/svc.sh"
+init="$(svc_detect)"
 
 here="$(dirname "$(readlink -f "$0")")"
 object="$here/MCHOSE__Ace68-II.bpf.o"
@@ -28,8 +33,8 @@ for candidate in /sys/bus/hid/devices/0003:41E4:2116.*; do
 done
 [[ -n "$device" ]] || { echo "Ace68-II interface 2 not found." >&2; exit 1; }
 
-rc-service mchose-adv status >/dev/null || { echo "Working OpenRC bridge is not running; refusing." >&2; exit 1; }
-rc-update show default | grep -q 'mchose-adv' || { echo "Bridge is not in default runlevel; refusing." >&2; exit 1; }
+svc_status mchose-adv || { echo "The mchose-adv bridge is not running under $init; refusing." >&2; exit 1; }
+svc_is_enabled mchose-adv || { echo "The bridge is not enabled at boot under $init; refusing." >&2; exit 1; }
 
 echo "Install a persistent HID-BPF rule for $device and disable the old bridge at boot?"
 echo "You will get a 120-second A/D test before you decide to keep it."
@@ -52,8 +57,8 @@ rollback() {
 		udev-hid-bpf remove "$device" || echo "BPF detach failed; remove it before restarting the bridge." >&2
 	fi
 	if (( bridge_stopped )); then
-		rc-update add mchose-adv default
-		rc-service mchose-adv start
+		svc_enable mchose-adv
+		svc_start mchose-adv
 	fi
 	if (( object_created )); then
 		rm -f -- "$object_target"
@@ -66,7 +71,7 @@ trap 'exit 143' TERM
 install -Dm644 "$object" "$object_target"
 object_created=1
 bridge_stopped=1
-rc-service mchose-adv stop
+svc_stop mchose-adv
 attached=1
 udev-hid-bpf add "$device" "$object_target"
 
@@ -80,6 +85,6 @@ fi
 install -Dm644 "$rule_source" "$rule_target"
 rule_created=1
 udevadm control --reload-rules
-rc-update del mchose-adv default
+svc_disable mchose-adv
 keep=1
 echo "HID-BPF rule installed for future reconnects and boots; old bridge disabled but retained."

@@ -1,7 +1,7 @@
 # MCHOSE Ace68-II advanced keys on Linux
 
 **Fork of [erikenz/mchose-adv](https://github.com/erikenz/mchose-adv), adapted
-for the MCHOSE Ace68-II and Gentoo/OpenRC.** Credit for the original
+for the MCHOSE Ace68-II, on any Linux distribution and init system.** Credit for the original
 `mchose-adv` userspace bridge and protocol documentation belongs to its upstream
 contributors. This fork adds Ace68-II-specific support and a HID-BPF descriptor
 fixup; it is not an official MCHOSE project.
@@ -12,6 +12,20 @@ long-running bridge process, polling loop, virtual keyboard, or firmware flash.
 The keyboard itself must still be configured for A/D last-input-wins SOCD.
 An adaptation of [erikenz/mchose-adv](https://github.com/erikenz/mchose-adv)
 is retained as a tested userspace fallback.
+
+## Supported systems
+
+| Piece | Needs | Works with |
+|---|---|---|
+| HID-BPF fixup (recommended) | kernel `CONFIG_HID_BPF=y`, bpffs, [udev-hid-bpf](https://libevdev.pages.freedesktop.org/udev-hid-bpf/), a udev implementation | any init: it is loaded by **udev** rules on device add, not by a service. systemd-udevd and eudev both work; busybox `mdev`/`mdevd` do not run udev rules. |
+| Userspace bridge (fallback) | `/dev/uinput` | **systemd** (system or user unit), **OpenRC**, **runit**, **s6** (s6-rc), **dinit**, **SysV init** (incl. busybox init via `/etc/init.d`), or no init integration (`INIT=none`) |
+| Packaging | | `make install`, `./install.sh`, Arch `PKGBUILD`, Nix flake (`packages` + `nixosModules.default`) |
+
+[`scripts/svc.sh`](scripts/svc.sh) detects the running init system and is
+what the installer and the BPF test/install/rollback scripts use to stop,
+start, enable and disable the bridge, so they behave the same everywhere.
+Run `scripts/svc.sh detect` to see what it found; set `MCHOSE_INIT=<name>` to
+override it.
 
 ## What was wrong, and what changes
 
@@ -25,11 +39,11 @@ does not change reports sent by the keyboard or implement SOCD in software.
 Both the BPF program's probe and the udev rule restrict it to this USB ID and
 the expected interface/descriptor; other HID interfaces are left alone.
 
-On the tested machine (Gentoo, kernel `7.2.7-gentoo-dist-bin`), the object
+On the first tested machine (Gentoo, kernel `7.2.7-gentoo-dist-bin`), the object
 compiled, attached to the physical keyboard with the bridge stopped, and A/D
 characters worked without Fn during that attachment. The persistent files are
-now installed, the bridge is stopped and removed from OpenRC's default
-runlevel, and the fixup is attached in the kernel. **An actual reboot or
+now installed, the bridge is stopped and disabled at boot, and the fixup is
+attached in the kernel. **An actual reboot or
 replug and a full last-input-wins sequence (hold A, press D, release D) have
 not been independently verified.** Other features, firmware revisions, and
 keyboards have not been validated.
@@ -40,10 +54,11 @@ The installed rule is
 `/etc/udev/rules.d/82-mchose-ace68-ii-hid-bpf.rules`; the compiled object is
 `/etc/udev-hid-bpf/MCHOSE__Ace68-II.bpf.o`. On a matching HID interface-2
 **add** event, udev invokes `/usr/bin/udev-hid-bpf add` to attach the object.
-On removal it invokes `udev-hid-bpf remove`. Gentoo's OpenRC `udev` and
-`udev-trigger` services are in `sysinit`, and bpffs is mounted at
-`/sys/fs/bpf`. This is **configured** to reattach on boot and reconnect, but
-that behavior has not yet been confirmed with a reboot/replug test.
+On removal it invokes `udev-hid-bpf remove`. Because udev replays add events
+at boot (`udevadm trigger`, run by every init system's udev service), this
+needs no init-specific service; bpffs must be mounted at `/sys/fs/bpf`. This
+is **configured** to reattach on boot and reconnect, but that behavior has not
+yet been confirmed with a reboot/replug test.
 
 `udev-hid-bpf` runs briefly on device events; it is **not** a resident daemon.
 The attached BPF code resides in the kernel, not in a process listed by `ps`.
@@ -55,8 +70,8 @@ do add an on-disk installation footprint.
 To inspect your own system without changing it:
 
 ```sh
-rc-service mchose-adv status
-rc-update show default | grep mchose || true
+scripts/svc.sh status && echo "bridge running"
+scripts/svc.sh is-enabled && echo "bridge enabled at boot"
 ps -eo pid,comm,args | grep -E '[m]chose-adv|[u]dev-hid-bpf' || true
 find /sys/fs/bpf/hid -maxdepth 3 -path '*41E4*' -print 2>/dev/null
 ls -l /etc/udev/rules.d/82-mchose-ace68-ii-hid-bpf.rules \
@@ -72,7 +87,7 @@ an attachment exists **now**, not that a future boot will succeed.
 1. In MCHOSE M HUB Web, use a WebHID-capable browser to configure A/D as
    last-input-wins SOCD on a Custom Profile. The setting is stored on the
    keyboard. No Linux userspace bridge or BPF program configures SOCD.
-2. For WebHID access on Gentoo, install
+2. For WebHID access, install
    [`packaging/70-mchose-ace68-ii.rules`](packaging/70-mchose-ace68-ii.rules)
    in `/etc/udev/rules.d/`, reload udev rules, then reconnect the keyboard.
    On NixOS, add the rule to `services.udev.extraRules` in your NixOS config
@@ -88,12 +103,13 @@ an attachment exists **now**, not that a future boot will succeed.
    reload the rule and reconnect the keyboard. It does **not** grant access
    to `/dev/uinput` or set mouse polling rates.
 
-## Build and install HID-BPF on Gentoo/OpenRC
+## Build and install HID-BPF
 
 The `.bpf.o` file is deliberately **not committed**: compile it locally with
 the [udev-hid-bpf](https://libevdev.pages.freedesktop.org/udev-hid-bpf/getting-started.html)
-source/toolchain. This procedure describes the tested `2.2.0-20251121`
-source and Gentoo packaging, not a prebuilt release artifact. Keep another
+source/toolchain. This procedure was tested with the `2.2.0-20251121`
+source; Gentoo commands are shown as an example, and other distributions
+package `udev-hid-bpf` under the same name (or build it from source). Keep another
 keyboard available while testing: attaching or removing HID-BPF reprobes the
 advanced-key interface.
 
@@ -103,24 +119,24 @@ advanced-key interface.
 
    ```sh
    printf '%s\n' 'sys-kernel/udev-hid-bpf ~amd64' | \
-     doas tee /etc/portage/package.accept_keywords/udev-hid-bpf
-   doas emerge -av sys-kernel/udev-hid-bpf
+     sudo tee /etc/portage/package.accept_keywords/udev-hid-bpf
+   sudo emerge -av sys-kernel/udev-hid-bpf
    ```
 
    Its ebuild pulls in the required build/runtime dependencies (including
    clang with BPF support, bpftool, and libbpf). Check `emerge -pv` before
    accepting changes on a different Gentoo system.
 
-2. Build the object from the matching source release. The tested source was
-   the Gentoo distfile
-   `/var/cache/distfiles/udev-hid-bpf-2.2.0-20251121.tar.bz2`:
+2. Build the object from the matching udev-hid-bpf source release (on
+   Gentoo, the distfile in `/var/cache/distfiles/`). With `REPO` set to this
+   checkout:
 
    ```sh
-   mkdir -p /tmp/opencode
-   tar -xjf /var/cache/distfiles/udev-hid-bpf-2.2.0-20251121.tar.bz2 -C /tmp/opencode
-   cd /tmp/opencode/udev-hid-bpf-2.2.0-20251121
-   cp ~/code/src/peripheral-udev/mchose-adv-ace68-ii/bpf/MCHOSE__Ace68-II.bpf.c \
-     src/bpf/testing/0010-MCHOSE__Ace68-II.bpf.c
+   REPO=$PWD
+   mkdir -p /tmp/hid-bpf
+   tar -xjf udev-hid-bpf-2.2.0-20251121.tar.bz2 -C /tmp/hid-bpf
+   cd /tmp/hid-bpf/udev-hid-bpf-2.2.0-20251121
+   cp "$REPO/bpf/MCHOSE__Ace68-II.bpf.c" src/bpf/testing/0010-MCHOSE__Ace68-II.bpf.c
    ```
 
    Add `'0010-MCHOSE__Ace68-II.bpf.c',` inside the `sources = [ ... ]` list
@@ -129,21 +145,19 @@ advanced-key interface.
    ```sh
    meson setup build -Dbpfs=testing -Dbpf-compiler=clang
    ninja -C build src/bpf/0010-MCHOSE__Ace68-II.bpf.o
-   cp build/src/bpf/0010-MCHOSE__Ace68-II.bpf.o \
-     ~/code/src/peripheral-udev/mchose-adv-ace68-ii/bpf/MCHOSE__Ace68-II.bpf.o
-   cd ~/code/src/peripheral-udev/mchose-adv-ace68-ii
+   cp build/src/bpf/0010-MCHOSE__Ace68-II.bpf.o "$REPO/bpf/MCHOSE__Ace68-II.bpf.o"
+   cd "$REPO"
    python3 bpf/check_descriptor.py
    ```
 
    The descriptor check is non-invasive; it does not prove key events work.
-   See [BPF test details](bpf/README.md). If your checkout lives elsewhere,
-   adjust the paths above. The installer intentionally refuses to overwrite
+   See [BPF test details](bpf/README.md). The installer intentionally refuses to overwrite
    existing target files or to switch a machine without the running fallback.
 
 3. With the bridge running, do a **temporary** live test:
 
    ```sh
-   doas bash bpf/live-test.sh
+   sudo bash bpf/live-test.sh
    ```
 
    It stops the bridge, attaches the object, and restores the bridge when
@@ -154,7 +168,7 @@ advanced-key interface.
 4. If the live test succeeds, perform the guarded persistent switch:
 
    ```sh
-   doas bash bpf/install-hid-bpf.sh
+   sudo bash bpf/install-hid-bpf.sh
    ```
 
    It tests again, then waits up to 120 seconds. Type `keep` **only if it
@@ -174,14 +188,14 @@ presence and `udevadm test` alone are not a successful boot test.
 From this repository, run:
 
 ```sh
-doas bash bpf/rollback-hid-bpf.sh
+sudo bash bpf/rollback-hid-bpf.sh
 ```
 
 This removes the persistent rule, reloads udev, detaches the live BPF
-attachment, removes its installed object, and restores/enables the OpenRC
-bridge. **Do not start the bridge while the BPF fixup remains attached:** that
+attachment, removes its installed object, and restores/enables the bridge
+under the running init system. **Do not start the bridge while the BPF fixup remains attached:** that
 can produce duplicate keys. If an interrupted install leaves an attachment,
-detach it with `doas udev-hid-bpf remove /sys/bus/hid/devices/0003:41E4:2116.NNNN`
+detach it with `sudo udev-hid-bpf remove /sys/bus/hid/devices/0003:41E4:2116.NNNN`
 (replace `NNNN` with the current interface-2 HID instance) before starting
 the bridge. The script refuses to start the bridge if detaching fails.
 
@@ -189,16 +203,53 @@ The fallback bridge reads interface-2 reports and re-emits keys through
 `uinput`. To build and enable it on a machine without an HID-BPF install:
 
 ```sh
-make
-doas make install
-doas rc-service mchose-adv start
-doas rc-update add mchose-adv default
+./install.sh                    # detects the init system, enables + starts it
+./install.sh --init runit       # or force one: systemd openrc runit s6 dinit sysvinit none
+./install.sh --user             # systemd user service in ~/.local instead
+./install.sh --uninstall
 ```
 
-Its service runs as root because `/dev/uinput` is root-only by default;
-stderr goes to `/var/log/mchose-adv.log`. Do not run this bridge at the same
-time as the attached BPF fixup. Removing either Linux solution does not reset
-the keyboard's onboard SOCD binding: change that in M HUB Web if desired.
+Or by hand / from a distro package:
+
+```sh
+make
+sudo make install install-init PREFIX=/usr INIT=auto   # or INIT=<name>
+sudo scripts/svc.sh enable
+sudo scripts/svc.sh start
+```
+
+| `INIT=` | Installs | Enable at boot |
+|---|---|---|
+| `systemd` | `/etc/systemd/system/mchose-adv.service` | `systemctl enable --now mchose-adv` |
+| `systemd-user` | `$PREFIX/lib/systemd/user/mchose-adv.service` | `systemctl --user enable --now mchose-adv` |
+| `openrc` | `/etc/init.d/mchose-adv` | `rc-update add mchose-adv default` |
+| `runit` | `/etc/sv/mchose-adv` (`/etc/runit/sv` on Artix) | link into `/var/service` (Void) or `/run/runit/service` (Artix) |
+| `s6` | `/etc/s6/sv/mchose-adv` (s6-rc source) | `s6-service add default mchose-adv && s6-db-reload` (Artix), or add it to your bundle |
+| `dinit` | `/etc/dinit.d/mchose-adv` | `dinitctl enable mchose-adv` |
+| `sysvinit` | `/etc/init.d/mchose-adv` (LSB) | `update-rc.d mchose-adv defaults` or `chkconfig --add mchose-adv` |
+| `none` | nothing | run `mchose-adv-ace68-ii --retry 2` from your own supervisor |
+
+`scripts/svc.sh enable` runs the right command for you. Directories can be
+overridden (`SYSTEMDUNITDIR`, `RUNITDIR`, `S6DIR`, `DINITDIR`, `SYSCONFDIR`).
+
+On NixOS, use the flake:
+
+```nix
+{
+  inputs.mchose.url = "github:muralibaburaj/mchose-ace68-ii-linux";
+  # in your nixosSystem modules:
+  #   mchose.nixosModules.default
+  #   { services.mchose-ace68-ii = { enable = true; bridge.enable = true; }; }
+}
+```
+
+The system service runs as root because `/dev/uinput` is root-only by
+default; its stderr goes to the journal (systemd), syslog (runit, s6) or
+`/var/log/mchose-adv.log` (OpenRC, dinit, SysV).
+
+Do not run this bridge at the same time as the attached BPF fixup. Removing
+either Linux solution does not reset the keyboard's onboard SOCD binding:
+change that in M HUB Web if desired.
 
 ## Provenance and scope
 

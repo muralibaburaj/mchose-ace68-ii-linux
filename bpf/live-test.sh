@@ -3,9 +3,14 @@
 set -euo pipefail
 
 if (( EUID != 0 )); then
-	echo "Run this script with doas (root is needed to attach HID-BPF)." >&2
+	echo "Run this script as root (sudo or doas); attaching HID-BPF needs it." >&2
 	exit 1
 fi
+
+# Start/stop/enable the bridge under whichever init system is running.
+# shellcheck source=scripts/svc.sh
+. "$(dirname "$(readlink -f "$0")")/../scripts/svc.sh"
+init="$(svc_detect)"
 
 object="$(dirname "$(readlink -f "$0")")/MCHOSE__Ace68-II.bpf.o"
 if [[ ! -r "$object" ]]; then
@@ -24,7 +29,7 @@ done
 
 echo "Temporary HID-BPF test on: $device"
 echo "The interface will briefly re-probe; A/D may stop working during the test."
-echo "Press Enter at the end to REMOVE the fixup and restore the OpenRC bridge."
+echo "Press Enter at the end to REMOVE the fixup and restore the bridge."
 read -r -p "Type 'test' to proceed: " confirm
 [[ "$confirm" == test ]] || exit 0
 
@@ -33,17 +38,17 @@ attached=0
 restore() {
 	set +e
 	if (( attached )); then
-		udev-hid-bpf remove "$device" || echo "BPF removal failed: run 'doas udev-hid-bpf remove $device'" >&2
+		udev-hid-bpf remove "$device" || echo "BPF removal failed: run 'udev-hid-bpf remove $device' as root" >&2
 	fi
 	if (( bridge_stopped )); then
-		rc-service mchose-adv start || echo "Bridge restart failed: run 'doas rc-service mchose-adv start'" >&2
+		svc_start mchose-adv || echo "Bridge restart failed: start the mchose-adv service ($init)" >&2
 	fi
 }
 trap restore EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-rc-service mchose-adv stop
+svc_stop mchose-adv
 bridge_stopped=1
 
 # Set before attaching so even a partially successful add is removed.

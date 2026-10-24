@@ -2,7 +2,8 @@
 
 description="Bridge MCHOSE Ace68-II advanced-key reports to Linux input"
 supervisor="supervise-daemon"
-command="/usr/local/bin/mchose-adv-ace68-ii"
+command="@BIN@"
+command_args="--retry 2"
 pidfile="/run/${RC_SVCNAME}.pid"
 respawn_delay=2
 respawn_period=60
@@ -11,6 +12,8 @@ error_log="/var/log/mchose-adv.log"
 required_files="${command}"
 
 depend() {
-	need udev
+	# use, not need: also starts on systems without a udev service (mdev, eudev
+	# under another name).
+	use udev
 	after udev-trigger
 }

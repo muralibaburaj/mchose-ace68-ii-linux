@@ -2,9 +2,13 @@
 set -euo pipefail
 
 if (( EUID != 0 )); then
-	echo "Run this script with doas." >&2
+	echo "Run this script as root (sudo or doas)." >&2
 	exit 1
 fi
+
+# Start/stop/enable the bridge under whichever init system is running.
+# shellcheck source=scripts/svc.sh
+. "$(dirname "$(readlink -f "$0")")/../scripts/svc.sh"
 
 rule=/etc/udev/rules.d/82-mchose-ace68-ii-hid-bpf.rules
 object=/etc/udev-hid-bpf/MCHOSE__Ace68-II.bpf.o
@@ -23,6 +27,6 @@ for device in /sys/bus/hid/devices/0003:41E4:2116.*; do
 done
 
 rm -f -- "$object"
-rc-update add mchose-adv default
-rc-service mchose-adv start
+svc_enable mchose-adv
+svc_start mchose-adv
 echo "Restored the userspace bridge and removed the persistent HID-BPF rule."

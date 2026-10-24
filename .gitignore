@@ -1,4 +1,4 @@
-mchose-adv
+/mchose-adv
 *.o
 *.pkg.tar.zst
 pkg/

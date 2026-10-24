@@ -1,13 +1,13 @@
 [Unit]
-Description=MCHOSE keyboard advanced keys (SOCD/RS/DKS) bridge
-Documentation=https://github.com/erikenz/mchose-adv
+Description=MCHOSE Ace68-II advanced-key bridge
+Documentation=https://github.com/muralibaburaj/mchose-ace68-ii-linux
 # Not Requires=: the daemon is happy to run before the keyboard exists and
 # waits for it to appear.
-After=default.target
+After=systemd-udevd.service systemd-modules-load.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/mchose-adv --retry 2
+ExecStart=@BIN@ --retry 2
 # The device legitimately disappears while it is passed through to a VM, and
 # reappears on detach. Restarting keeps the bridge alive across that.
 Restart=always
@@ -16,4 +16,4 @@ RestartSec=2
 Nice=-5
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

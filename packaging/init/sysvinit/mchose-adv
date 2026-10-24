@@ -1,0 +1,82 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          mchose-adv
+# Required-Start:    $local_fs $syslog udev
+# Required-Stop:     $local_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: MCHOSE Ace68-II advanced-key bridge
+### END INIT INFO
+#
+# SysV init script (Devuan, MX, Slackware, plain sysvinit, busybox init).
+# Uses start-stop-daemon when available and plain sh otherwise.
+
+NAME=mchose-adv
+DAEMON=@BIN@
+DAEMON_ARGS="--retry 2"
+PIDFILE=/run/$NAME.pid
+LOGFILE=/var/log/$NAME.log
+
+[ -x "$DAEMON" ] || exit 0
+
+is_running() {
+	[ -r "$PIDFILE" ] || return 1
+	pid=$(cat "$PIDFILE")
+	[ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+do_start() {
+	if is_running; then
+		echo "$NAME is already running"
+		return 0
+	fi
+	echo "Starting $NAME"
+	if command -v start-stop-daemon >/dev/null 2>&1; then
+		start-stop-daemon --start --quiet --background --make-pidfile \
+			--pidfile "$PIDFILE" --startas /bin/sh -- \
+			-c "exec nice -n -5 $DAEMON $DAEMON_ARGS >>$LOGFILE 2>&1"
+	else
+		# shellcheck disable=SC2086 # DAEMON_ARGS must word-split
+		nohup nice -n -5 "$DAEMON" $DAEMON_ARGS >>"$LOGFILE" 2>&1 </dev/null &
+		echo $! >"$PIDFILE"
+	fi
+}
+
+do_stop() {
+	if ! is_running; then
+		echo "$NAME is not running"
+		rm -f "$PIDFILE"
+		return 0
+	fi
+	echo "Stopping $NAME"
+	pid=$(cat "$PIDFILE")
+	kill "$pid"
+	i=0
+	while kill -0 "$pid" 2>/dev/null && [ $i -lt 50 ]; do
+		sleep 0.1
+		i=$((i + 1))
+	done
+	kill -0 "$pid" 2>/dev/null && kill -9 "$pid"
+	rm -f "$PIDFILE"
+}
+
+case "$1" in
+start) do_start ;;
+stop) do_stop ;;
+restart | force-reload)
+	do_stop
+	do_start
+	;;
+status)
+	if is_running; then
+		echo "$NAME is running (pid $(cat "$PIDFILE"))"
+	else
+		echo "$NAME is not running"
+		exit 3
+	fi
+	;;
+*)
+	echo "Usage: $0 {start|stop|restart|status}" >&2
+	exit 2
+	;;
+esac

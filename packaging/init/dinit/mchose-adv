@@ -1,0 +1,6 @@
+# dinit (Chimera, Artix dinit, ...). Enable with: dinitctl enable mchose-adv
+type = process
+command = @BIN@ --retry 2
+restart = true
+smooth-recovery = true
+logfile = /var/log/mchose-adv.log

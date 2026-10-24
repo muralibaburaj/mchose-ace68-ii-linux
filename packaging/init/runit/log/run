@@ -1,0 +1,4 @@
+#!/bin/sh
+# Forward the bridge's output to syslog; works with socklog, busybox syslogd,
+# or any other syslog daemon.
+exec logger -t mchose-adv
